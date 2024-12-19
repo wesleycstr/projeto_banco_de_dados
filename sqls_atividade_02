@@ -1,0 +1,262 @@
+/*1 - Quantas presenças o aluno detentor do container 43 obteve na aula da disciplina VOIP do dia 20/09/2023? 
+R=1*/
+
+SELECT 
+    SUM(CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0
+    END) AS total_presencas -- Soma das presenças do aluno com container 43
+FROM projeto a
+WHERE a.sigladisciplina = 'VOIP'
+  AND a.periodo = '2023.2'
+  AND a.DATA = '2023-09-20'
+  AND a.container = '43'; -- Filtra o aluno com o container 43
+  
+  
+/*2 - Quantas aulas foram ministradas até o dia 10/10/2023 no período 2023.2 da disciplina VOIP?
+R: 26*/
+
+SELECT COUNT(DISTINCT c.data) * 2 AS total_aulas
+FROM chamada c
+JOIN turmas t ON c.idturma = t.idturma
+JOIN disciplinas d ON t.iddisciplina = d.iddisciplina
+WHERE t.semestre = '2023.2'
+  AND d.sigladisciplina = 'VOIP'
+  AND c.data <= '2023-10-10';
+  
+/*3- Quantas faltas acumuladas o aluno detentor do container 43 obteve na disciplina VOIP no período 2023.2 até dia 10/10/2023?
+R: 7*/
+
+  SELECT 
+    SUM(t.numaulas - CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0 -- Maior que 59 minutos
+    END) AS total_faltas -- Soma das faltas
+FROM (
+    SELECT DISTINCT data, numaulas
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+      AND container = '43'
+) a ON t.data = a.data;
+
+/*4- Quantas presenças acumuladas o aluno detentor do container 43 obteve na disciplina VOIP no período 2023.2 até dia 10/10/2023?
+R: 19*/
+
+SELECT 
+    SUM(CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0
+    END) AS total_presencas -- Soma das presenças acumuladas
+FROM (
+    SELECT DISTINCT DATA
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND DATA <= '2023-10-10'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND DATA <= '2023-10-10'
+      AND container = '43'
+) a ON t.data = a.data;
+
+/*5- Qual a matrícula, container e quantidade de presenças do aluno com menos faltas na disciplina VOIP  no semestre 2023.2, até dia 10/10/2023?
+R: Matrícula: 20202014050023, Container: 37, Presenças: 25*/
+
+SELECT 
+    a.matricula, -- Exibe o container (aluno)
+    a.container, -- Exibe a matrícula do aluno
+    SUM(CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0 -- Maior que 59 minutos
+    END) AS total_presencas -- Soma das presenças acumuladas por aluno
+FROM (
+    SELECT DISTINCT data
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+) a ON t.data = a.data
+GROUP BY a.matricula, a.container -- Agrupar por aluno (container) e matrícula
+ORDER BY total_presencas DESC -- Ordenar pela soma de presenças de forma decrescente
+LIMIT 1; -- Exibir apenas a linha com o maior número de presenças
+
+/*6- Em qual data houve mais presenças contabilizadas na disciplina VoIP, período 2023.2, até 10/10/2023 (desconsidere sábados letivos)?
+Quantas presenças foram contabilizadas neste dia (somatório da presença de todos os alunos)?
+R: 11/09/2023, 46 presenças.*/
+
+SELECT 
+    t.data, -- Apenas a data com maior número de presenças
+    SUM(CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0 -- Maior que 59 minutos
+    END) AS presencas -- Calcular o total de presenças
+FROM (
+    SELECT DISTINCT data, diasemana, numaulas
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+) a ON t.data = a.data
+WHERE t.diasemana != 7 -- Ignorar domingos
+GROUP BY t.data -- Agrupar por data
+ORDER BY presencas DESC -- Ordenar pelo maior número de presenças
+LIMIT 1; -- Retornar apenas a data com mais presenças
+
+
+/*7- Em qual data houve menos presenças contabilizadas na disciplina VoIP, período 2023.2, até 10/10/2023 (desconsidere sábados letivos)?
+Quantas presenças foram contabilizadas neste dia (somatório da presença de todos os alunos)?
+R: 02/10/2023, 21 presenças.*/
+SELECT 
+    t.data, -- Exibe a data
+    SUM(CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0 -- Maior que 59 minutos
+    END) AS presencas -- Soma das presenças
+FROM (
+    SELECT DISTINCT DATA, diasemana, numaulas
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND DATA <= '2023-10-10'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND DATA <= '2023-10-10'
+) a ON t.data = a.data
+GROUP BY t.data, t.diasemana -- Agrupa por data e dia da semana
+HAVING t.diasemana != 7 -- Ignorar domingos
+ORDER BY presencas ASC -- Ordena pelo menor número de presenças
+LIMIT 1; -- Retorna apenas a data com menos presenças
+
+
+
+/*8- Qual o dia da semana com mais presenças acumuladas em VoIP, período 2023.2, até 10/10/2023? Segundas ou quartas?
+Qual o total de presenças nas segundas? E nas quartas?
+R: Segundas: 259 presenças. Quartas: 228 presenças.*/
+
+SELECT 
+    t.diasemana, -- Dia da semana
+    SUM(CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 65 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 31 e 59 minutos
+                ELSE 2 -- Maior que 59 minutos
+            END
+        ELSE 0 -- Maior que 59 minutos
+    END) AS total_presencas -- Soma das presenças por dia da semana
+FROM (
+    SELECT DISTINCT DATA, diasemana
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND DATA <= '2023-10-10'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND DATA <= '2023-10-10'
+) a ON t.data = a.data
+GROUP BY t.diasemana -- Agrupa por dia da semana
+HAVING SUM(CASE 
+            WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 1 
+            ELSE 0 
+          END) > 0 -- Filtra apenas dias com marcações válidas
+ORDER BY t.diasemana; -- Ordena pelo dia da semana
+
+/*9- Qual o atraso médio em minutos da disciplina VoIP, período 2023.2, nas marcações efetuadas até 10/10/2023?
+R: 6,57 min*/
+
+SELECT 
+    ROUND(SUM(TIMESTAMPDIFF(SECOND, horarioinicio, marcacaoentrada)) / COUNT(*) / 60, 2) AS tempo_medio_atraso_em_minutos
+FROM projeto
+WHERE sigladisciplina = 'VOIP'
+  AND periodo = '2023.2'
+  AND DATA <= '2023-10-10';
+
+/*10- Qual a saída antecipada média em minutos da disciplina VoIP, período 2023.2, nas marcações efetuadas até 10/10/2023?
+R: 7,48 min*/
+SELECT 
+    ROUND(SUM(TIMESTAMPDIFF(SECOND, horariofim, marcacaosaida)) / COUNT(*) / 60, 2) AS tempo_medio_atraso_em_minutos
+FROM projeto
+WHERE sigladisciplina = 'VOIP'
+  AND periodo = '2023.2'
+  AND DATA <= '2023-10-10'
+  
+/*11- Qual a matrícula e o atraso médio em minutos na disciplina VoIP, período 2023.2, do aluno que em média mais se atrasa (até 10/10/2023)?
+R: 20222014050020, 19,49 min*/
+
+SELECT 
+    a.matricula,
+    ROUND(AVG(TIMESTAMPDIFF(SECOND, a.horarioinicio, a.marcacaoentrada)) / 60, 2) AS atraso_medio_minutos
+FROM projeto a
+WHERE a.sigladisciplina = 'VOIP'
+  AND a.periodo = '2023.2'
+  AND a.DATA <= '2023-10-10'
+  AND TIMESTAMPDIFF(SECOND, a.horarioinicio, a.marcacaoentrada) > 0 -- Considera apenas os registros com atraso
+GROUP BY a.matricula -- Agrupa por matrícula
+ORDER BY atraso_medio_minutos DESC -- Ordena para pegar o maior atraso médio
+LIMIT 1; -- Limita a 1 para pegar apenas o aluno com maior atraso médio
+
