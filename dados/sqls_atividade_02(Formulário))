@@ -1,0 +1,234 @@
+/*Elabore, execute e poste a resposta de uma consulta que indique as presenças do aluno 
+detentor do container 52, na disciplina VOIP, semestre 2023.2, no dia 2023-10-09*/
+
+SELECT 
+    SUM(CASE 
+            WHEN a.marcacaoentrada IS NOT NULL 
+                AND a.marcacaosaida IS NOT NULL THEN 
+                CASE 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1
+                    ELSE 2
+                END
+            ELSE 0
+        END) AS total_presencas
+FROM projeto a
+WHERE a.sigladisciplina = 'VOIP'
+  AND a.periodo = '2023.2'
+  AND a.DATA = '2023-10-09'
+  AND a.container = '52';
+
+  
+  
+/*2 - Elabore, execute e poste a resposta de uma consulta que indique as faltas 
+do aluno detentor do container 52, na disciplina VOIP, semestre 2023.2, no dia 2023-09-18.*/
+
+  SELECT 
+    SUM(t.numaulas - CASE 
+        WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0
+                WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1
+                ELSE 2
+            END
+        ELSE 0
+    END) AS total_faltas
+FROM (
+    SELECT DISTINCT data, numaulas
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data = '2023-09-18'
+) t
+LEFT JOIN (
+    SELECT *
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data = '2023-09-18'
+      AND container = '52'
+) a ON t.data = a.data;
+
+/*Elabore, execute e poste um relatório de presenças e faltas do aluno detentor do container 52, 
+na disciplina VOIP, semestre 2023.2. As colunas do relatório devem ser as seguintes:
+"matricula"; "siglaturma"; "periodo"; container; DataAula; NumAulas; Semana; "conteudo"; inicio; fim; Presencas; Faltas
+
+Onde:
+
+matricula: matrícula do aluno;
+siglaturma: sigla da turma (VOIP);
+periodo: período no qual a disciplina foi cursada (2023.2)
+container: container do aluno (52);
+DataAula: data na qual a aula foi ministrada;
+NumAulas: número de aulas ministradas naquele dia;
+Semana: dia da Semana no qual a aula foi ministrada (2-segunda, 3-terça, 4-quarta, ...);
+conteudo: conteúdo ministrado na aula;
+inicio: marcação de entrada na aula (NULL caso não tenha havido registro de entrada na aula);
+fim: marcação de saída na aula (NULL caso não tenha havido registro de saída na aula);
+Presencas: presenças nesta aula;
+Faltas: faltas nesta aula;
+
+Exceto para os campos representativos de presenças e faltas e aqueles relacionados às aulas, outros valores NULL podem ocorrer nos demais campos do relatório.
+
+Ordene o relatório por Data da aula (ascendente).
+
+Observe que deve existir uma linha do relatório para cada aula ministrada, independentemente do aluno ter comparecido ou não à aula em questão.
+*/
+
+SELECT 
+    COALESCE(a.matricula, b.matricula) AS matricula, 
+    COALESCE(a.sigladisciplina, 'VOIP') AS sigladisciplina, 
+    p.periodo, 
+    COALESCE(a.container, '52') AS container, 
+    t.data, 
+    t.numaulas, 
+    d.diasemana, 
+    c.conteudo, 
+    a.marcacaoentrada, 
+    a.marcacaosaida, 
+    CASE 
+        WHEN a.marcacaoentrada IS NULL THEN 0
+        WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, a.marcacaoentrada)) < 1350 THEN 0 
+        WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, a.marcacaoentrada)) BETWEEN 1350 AND 3900 THEN 1 
+        ELSE 2 
+    END AS presencas, 
+    (t.numaulas - CASE 
+        WHEN a.marcacaoentrada IS NULL THEN 0
+        WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, a.marcacaoentrada)) < 1350 THEN 0 
+        WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, a.marcacaoentrada)) BETWEEN 1350 AND 3900 THEN 1 
+        ELSE 2 
+    END) AS faltas 
+FROM (
+    SELECT DISTINCT data, numaulas
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+) t
+LEFT JOIN (
+    SELECT 
+        data, 
+        marcacaoentrada, 
+        marcacaosaida, 
+        container, 
+        matricula,
+        sigladisciplina,
+        periodo
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND container = '52'
+) a ON t.data = a.data
+LEFT JOIN (
+    SELECT DISTINCT 
+        container, 
+        matricula
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND container = '52'
+) b ON b.container = '52'
+LEFT JOIN (
+    SELECT DISTINCT data, periodo
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+) p ON t.data = p.data
+LEFT JOIN (
+    SELECT DISTINCT data, diasemana
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+) d ON t.data = d.data
+LEFT JOIN (
+    SELECT DISTINCT data, conteudo
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+) c ON t.data = c.data
+GROUP BY t.data, t.numaulas, a.marcacaoentrada, a.marcacaosaida, a.container, a.matricula, b.matricula, a.sigladisciplina, p.periodo, d.diasemana, c.conteudo
+ORDER BY a.matricula, a.sigladisciplina, p.periodo, a.container, t.data, t.numaulas, d.diasemana, c.conteudo, a.marcacaoentrada, a.marcacaosaida;
+
+/*Elabore, execute e poste um relatório que identifique o total de presenças e faltas em cada disciplina na qual 
+o aluno matrícula 20192014050020 esteja cursando no semestre 2023.2*/
+
+SELECT 
+    a.nome, 
+    a.matricula, 
+    p.sigladisciplina AS nomedisciplina, 
+    SUM(CASE 
+            WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+                CASE 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 
+                    ELSE 2 
+                END
+            ELSE 0
+        END) AS "Total de presenças", 
+    SUM(t.numaulas - CASE 
+            WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+                CASE 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1
+                    ELSE 2
+                END
+            ELSE 0
+        END) AS "Total de Faltas" 
+FROM 
+    projeto p
+LEFT JOIN 
+    projeto a ON p.data = a.data
+LEFT JOIN (
+    SELECT DISTINCT data, numaulas
+    FROM projeto
+    WHERE sigladisciplina IS NOT NULL
+) t ON t.data = a.data
+WHERE 
+    a.matricula = '20192014050020' 
+    AND p.periodo = '2023.2'
+GROUP BY 
+    a.nome, a.matricula, p.sigladisciplina 
+ORDER BY 
+    p.sigladisciplina;
+    
+/*Elabore, execute e poste um relatório que identifique os alunos matriculados na disciplina VOIP, 
+no semestre 2023.2, cujo percentual de faltas esteja superior a 25%, considerando o total de aulas já ministrado. */
+    SELECT 
+    a.nome,
+    a.matricula, 
+    ROUND(
+        SUM(t.numaulas - CASE 
+            WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+                CASE 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 
+                    ELSE 2 
+                END
+            ELSE 0
+        END) / SUM(t.numaulas) * 100, 2
+    ) AS Percentual_Faltas 
+FROM 
+    projeto p
+LEFT JOIN 
+    projeto a ON p.data = a.data
+LEFT JOIN (
+    SELECT DISTINCT data, numaulas
+    FROM projeto
+    WHERE sigladisciplina = 'VOIP'
+      AND periodo = '2023.2'
+      AND data <= '2023-10-10'
+) t ON t.data = a.data
+WHERE 
+    a.sigladisciplina = 'VOIP' 
+    AND a.periodo = '2023.2' 
+    AND a.data <= '2023-10-10' 
+GROUP BY 
+    a.nome, a.matricula 
+HAVING 
+    (SUM(t.numaulas - CASE 
+            WHEN a.marcacaoentrada IS NOT NULL AND a.marcacaosaida IS NOT NULL THEN 
+                CASE 
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) < 1350 THEN 0
+                    WHEN TIME_TO_SEC(TIMEDIFF(a.marcacaosaida, IFNULL(a.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1
+                    ELSE 2
+                END
+            ELSE 0
+        END) / SUM(t.numaulas) * 100) > 25 
+ORDER BY 
+    Percentual_Faltas DESC;
