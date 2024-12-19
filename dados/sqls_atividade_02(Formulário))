@@ -232,3 +232,35 @@ HAVING
         END) / SUM(t.numaulas) * 100) > 25 
 ORDER BY 
     Percentual_Faltas DESC;
+
+/*Poste aqui o script de geração do seu banco de dados (apenas da estrutura, sem os dados), obtido do seu container.*/
+USE `BD085`;
+
+/*Table structure for table `projeto` */
+
+DROP TABLE IF EXISTS `projeto`;
+
+CREATE TABLE `projeto` (
+  `idtabela` int(11) NOT NULL AUTO_INCREMENT,
+  `idaula` int(11) DEFAULT NULL,
+  `iddiario` int(11) DEFAULT NULL,
+  `data` date DEFAULT NULL,
+  `diasemana` varchar(20) DEFAULT NULL,
+  `numaulas` int(11) DEFAULT NULL,
+  `conteudo` text,
+  `idchamada` int(11) DEFAULT NULL,
+  `container` int(11) DEFAULT NULL,
+  `marcacaoentrada` time DEFAULT NULL,
+  `marcacaosaida` time DEFAULT NULL,
+  `periodo` varchar(10) DEFAULT NULL,
+  `matricula` varchar(30) DEFAULT NULL,
+  `nome` varchar(255) DEFAULT NULL,
+  `iddisciplina` int(11) DEFAULT NULL,
+  `sigladisciplina` varchar(30) DEFAULT NULL,
+  `nomedisciplina` varchar(255) DEFAULT NULL,
+  `idhorario` int(11) DEFAULT NULL,
+  `horarioinicio` time DEFAULT NULL,
+  `horariofim` time DEFAULT NULL,
+  `tolerancia` time DEFAULT NULL,
+  PRIMARY KEY (`idtabela`)
+) ENGINE=InnoDB AUTO_INCREMENT=3302 DEFAULT CHARSET=latin1;
