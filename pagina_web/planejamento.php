@@ -145,10 +145,54 @@ body {
     a:hover {
       text-decoration: underline;
     }
+
+    /*ESTILO DA TABELA*/
+    .table-container {
+        overflow-x: auto; /* Permite rolagem horizontal em telas menores */
+        margin-top: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse; /* Remove espaçamentos entre células */
+        font-size: 14px; /* Fonte ajustada */
+        background-color: #fff; /* Fundo branco */
+    }
+
+    table thead {
+        background-color: #333; /* Fundo escuro para o cabeçalho */
+        color: white; /* Texto branco */
+    }
+
+    table th,
+    table td {
+        padding: 10px; /* Espaçamento interno das células */
+        text-align: left; /* Texto alinhado à esquerda */
+        border: 1px solid #ddd; /* Bordas leves */
+        word-wrap: break-word; /* Quebra de linha em palavras longas */
+    }
+
+    table tbody tr:nth-child(even) {
+        background-color: #f9f9f9; /* Fundo alternado para linhas pares */
+    }
+
+    table tbody tr:hover {
+        background-color: #f1f1f1; /* Destaque para linha ao passar o mouse */
+    }
+
+    table th {
+        font-size: 15px; /* Fonte maior para o cabeçalho */
+        font-weight: bold; /* Negrito para o cabeçalho */
+    }
+
+    @media (max-width: 768px) {
+        table th,
+        table td {
+            font-size: 12px; /* Fonte menor para telas menores */
+        }
+    }
     </style>
 </head>
-<body>
-
 <!-- Barra de ferramentas -->
 <header>
     <div class="logo"></div> <!-- Espaço para o logo -->
@@ -189,38 +233,41 @@ body {
     </nav>
 </header>
 <body>
-  <div class="container">
-    <h1>Escolha uma Disciplina</h1>
-    <form action="#" method="POST">
-      <!--<label for="disciplinas">Disciplinas:</label>-->
-      <?php
-        require_once "conexao.php";
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Turma</th>
+                    <th>Nome da Disciplina</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                require_once "conexao.php";
 
-        if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['iddisciplina'])) {
-            $usuario_id = 1; // Exemplo: ID do usuário (pode ser obtido de uma sessão)
-            $iddisciplina = $_POST['iddisciplina'];
-            //echo $iddisciplina;
-        }
-            
-        // Chama a stored procedure
-        $stmt = $conn->prepare("CALL consulta_disciplina()");
-        $stmt->execute();
-    
-        // Gera o HTML do <select>
-        echo '<select name="iddisciplina" id="iddisciplina" required>';
-        echo '<option value="" disabled selected>Selecione uma disciplina</option>';
-    
-        while ($row = $stmt->fetch()) {
-            echo '<option value="' . htmlspecialchars($row['iddisciplina']) . '">' . htmlspecialchars($row['nomedisciplina']) . '</option>';
-        }
-    
-        echo '</select>';
-    ?>
+                // Chama a stored procedure
+                $stmt = $conn->prepare("CALL consulta_disciplina()");
+                $stmt->execute();
 
-      <button type="submit">Enviar</button>
-    </form>
-    <a href="#">Nova Disciplina</a>
-  </div>
+                // Gera as linhas da tabela
+                while ($row = $stmt->fetch()) {
+                    echo '<tr>';
+                    echo '<td>' . htmlspecialchars($row['idturma']) . '</td>';
+                    echo '<td>' . htmlspecialchars($row['nomedisciplina']) . '</td>';
+                    echo '<td>
+                            <form action="./disciplina.php" method="POST">
+                                <input type="hidden" name="idturma" value="' . htmlspecialchars($row['idturma']) . '">
+                                <input type="hidden" name="nomedisciplina" value="' . htmlspecialchars($row['nomedisciplina']) . '">
+                                <button type="submit">Enviar</button>
+                            </form>
+                          </td>';
+                    echo '</tr>';
+                }
+                ?>
+            </tbody>
+        </table>
+    </div>
 </body>
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
