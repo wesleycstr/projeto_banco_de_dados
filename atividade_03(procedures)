@@ -1,0 +1,96 @@
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS processachamada;//
+
+CREATE PROCEDURE processachamada(
+    IN container INT,
+    IN acao INT,
+    IN ipusr VARCHAR(40)
+)
+BEGIN
+    DECLARE retorno INT DEFAULT 0;
+    DECLARE mensagem VARCHAR(255) DEFAULT '';
+    DECLARE turmachamada VARCHAR(50) DEFAULT '';
+    DECLARE iniciochamada TIME DEFAULT NULL;
+    DECLARE fimchamada TIME DEFAULT NULL;
+    DECLARE fimtolerancia TIME DEFAULT NULL;
+    DECLARE data_atual DATE;
+    DECLARE hora_atual TIME;
+
+    -- Obtém a data e hora atuais
+    SET data_atual = CURDATE();
+    SET hora_atual = CURTIME();
+
+    -- Verifica a ação solicitada
+    IF acao = 0 THEN
+        -- Consulta se há aula na data e horário atual
+        IF EXISTS (
+            SELECT 1
+            FROM aulas a
+            JOIN horarios h ON a.idhorario = h.idhorario
+            WHERE a.data = data_atual
+              AND h.horainicio <= hora_atual
+              AND h.horafim >= hora_atual
+        ) THEN
+            -- Verifica se o aluno está matriculado no diário
+            IF EXISTS (
+                SELECT 1
+                FROM aulas a
+                JOIN matricula m ON a.iddiario = m.iddiario
+                WHERE m.container = container
+                  AND a.data = data_atual
+            ) THEN
+                -- Obtem informações da aula e horário
+                SELECT a.iddiario, h.horainicio, h.horafim, ADDTIME(h.horafim, '00:15:00')
+                INTO turmachamada, iniciochamada, fimchamada, fimtolerancia
+                FROM aulas a
+                JOIN horarios h ON a.idhorario = h.idhorario
+                WHERE a.data = data_atual
+                  AND h.horainicio <= hora_atual
+                  AND h.horafim >= hora_atual
+                LIMIT 1;
+
+                -- Verifica se é marcação de entrada ou saída
+                SELECT CASE
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM aulas a
+                               JOIN horarios h ON a.idhorario = h.idhorario
+                               WHERE a.data = data_atual
+                                 AND h.horainicio <= hora_atual
+                                 AND h.horafim >= hora_atual
+                                 AND h.horainicio <= hora_atual
+                           ) THEN 1 -- Marcação de entrada disponível
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM aulas a
+                               JOIN horarios h ON a.idhorario = h.idhorario
+                               WHERE a.data = data_atual
+                                 AND h.horafim >= hora_atual
+                                 AND h.horainicio <= hora_atual
+                           ) THEN 2 -- Marcação de saída disponível
+                           ELSE 0 -- Demais casos
+                       END INTO retorno;
+
+                -- Define a mensagem explicativa
+                SET mensagem = CASE
+                                   WHEN retorno = 1 THEN 'Marcação de entrada disponível.'
+                                   WHEN retorno = 2 THEN 'Marcação de saída disponível.'
+                                   ELSE 'Horário fora do período de marcação.'
+                               END;
+            ELSE
+                SET retorno = 0; -- Aluno não está matriculado no diário
+                SET mensagem = 'Aluno não está matriculado no diário.';
+            END IF;
+        ELSE
+            SET retorno = 0; -- Nenhuma aula no horário atual
+            SET mensagem = 'Nenhuma aula no horário atual.';
+        END IF;
+
+        -- Retorna o resultado
+        SELECT retorno, mensagem, turmachamada AS turma, iniciochamada AS inicio, fimchamada AS fim, fimtolerancia AS tolerancia;
+    END IF;
+END //
+
+DELIMITER ;
+
