@@ -104,7 +104,7 @@ USE `BD085`$$
 
 DROP PROCEDURE IF EXISTS `registrarChamada`$$
 
-CREATE PROCEDURE RegistrarChamada(
+CREATE DEFINER=`CONTAINER085`@`%` PROCEDURE `registrarChamada`(
     IN container INT,
     IN acao INT,
     IN ipusr VARCHAR(40)
@@ -143,8 +143,8 @@ BEGIN
             -- Verificar se encontrou a aula
             IF idaula IS NOT NULL THEN
                 -- Inserir na tabela chamada
-                INSERT INTO chamada (idaula, iddiario, DATA, idaluno, marcacaoentrada, ip)
-                VALUES (idaula, iddiario, data_atual, idaluno, hora_atual, ipusr);
+                INSERT INTO chamada (idaula, iddiario, data, idaluno, marcacaoentrada, container, ip)
+                VALUES (idaula, iddiario, data_atual, idaluno, hora_atual, container, ipusr);
 
                 -- Ajustar retorno e mensagem
                 SET retorno = 1;
@@ -164,12 +164,6 @@ BEGIN
 
     -- Retornar resultado
     SELECT retorno AS retorno, mensagem AS mensagem;
-END $$
+END$$
 
 DELIMITER ;
-
-DELIMITER ;
-END //
-
-DELIMITER ;
-
