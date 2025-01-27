@@ -1,10 +1,12 @@
 /*PROCEDURE PARA CONSULTAR DISPONIBILIDADE DE CHAMADA*/
 
-DELIMITER //
+DELIMITER $$
 
-DROP PROCEDURE IF EXISTS processachamada;//
+USE `BD085`$$
 
-CREATE PROCEDURE processachamada(
+DROP PROCEDURE IF EXISTS `processachamada2`$$
+
+CREATE DEFINER=`CONTAINER085`@`%` PROCEDURE `processachamada2`(
     IN container INT,
     IN acao INT,
     IN ipusr VARCHAR(40)
@@ -41,8 +43,9 @@ BEGIN
                 JOIN matricula m ON a.iddiario = m.iddiario
                 WHERE m.container = container
                   AND a.data = data_atual
+                  AND m.alunoativo = 1
             ) THEN
-                -- Obtem informações da aula e horário
+                -- Obtém informações da aula e horário
                 SELECT a.iddiario, h.horainicio, h.horafim, ADDTIME(h.horafim, '00:15:00')
                 INTO turmachamada, iniciochamada, fimchamada, fimtolerancia
                 FROM aulas a
@@ -56,21 +59,19 @@ BEGIN
                 SELECT CASE
                            WHEN EXISTS (
                                SELECT 1
-                               FROM aulas a
-                               JOIN horarios h ON a.idhorario = h.idhorario
-                               WHERE a.data = data_atual
-                                 AND h.horainicio <= hora_atual
-                                 AND h.horafim >= hora_atual
-                                 AND h.horainicio <= hora_atual
-                           ) THEN 1 -- Marcação de entrada disponível
-                           WHEN EXISTS (
-                               SELECT 1
-                               FROM aulas a
-                               JOIN horarios h ON a.idhorario = h.idhorario
-                               WHERE a.data = data_atual
-                                 AND h.horafim >= hora_atual
-                                 AND h.horainicio <= hora_atual
+                               FROM chamada
+                               WHERE container = container
+                                 AND DATA = data_atual
+                                 AND marcacaoentrada IS NOT NULL
+                                 AND marcacaosaida IS NULL
                            ) THEN 2 -- Marcação de saída disponível
+                           WHEN NOT EXISTS (
+                               SELECT 1
+                               FROM chamada
+                               WHERE container = container
+                                 AND DATA = data_atual
+                                 AND marcacaoentrada IS NOT NULL
+                           ) THEN 1 -- Marcação de entrada disponível
                            ELSE 0 -- Demais casos
                        END INTO retorno;
 
@@ -92,6 +93,9 @@ BEGIN
         -- Retorna o resultado
         SELECT retorno, mensagem, turmachamada AS turma, iniciochamada AS inicio, fimchamada AS fim, fimtolerancia AS tolerancia;
     END IF;
+END$$
+
+DELIMITER ;
 
 /*PROCEDURE PARA REGISTRAR ENTRADA*/
 DELIMITER $$
