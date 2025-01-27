@@ -1,3 +1,5 @@
+/*PROCEDURE PARA CONSULTAR DISPONIBILIDADE DE CHAMADA*/
+
 DELIMITER //
 
 DROP PROCEDURE IF EXISTS processachamada;//
@@ -90,6 +92,79 @@ BEGIN
         -- Retorna o resultado
         SELECT retorno, mensagem, turmachamada AS turma, iniciochamada AS inicio, fimchamada AS fim, fimtolerancia AS tolerancia;
     END IF;
+
+/*PROCEDURE PARA REGISTRAR ENTRADA*/
+DELIMITER $$
+
+USE `BD085`$$
+
+DROP PROCEDURE IF EXISTS `registrarChamada`$$
+
+CREATE PROCEDURE RegistrarChamada(
+    IN container INT,
+    IN acao INT,
+    IN ipusr VARCHAR(40)
+)
+BEGIN
+    DECLARE retorno INT DEFAULT 0;
+    DECLARE mensagem TEXT;
+    DECLARE iddiario INT;
+    DECLARE idaluno INT;
+    DECLARE idaula INT;
+    DECLARE data_atual DATE;
+    DECLARE hora_atual TIME;
+
+    -- Obter a data e hora atual
+    SET data_atual = CURDATE();
+    SET hora_atual = CURTIME();
+
+    -- Verificar se a ação é 1
+    IF acao = 1 THEN
+        -- Buscar idaluno e iddiario na tabela matricula
+        SELECT m.idaluno, m.iddiario
+        INTO idaluno, iddiario
+        FROM matricula m
+        WHERE m.container = container AND m.alunoativo = 1
+        LIMIT 1;
+
+        -- Verificar se encontrou registros
+        IF idaluno IS NOT NULL AND iddiario IS NOT NULL THEN
+            -- Buscar idaula na tabela aulas
+            SELECT a.idaula
+            INTO idaula
+            FROM aulas a
+            WHERE a.iddiario = iddiario AND a.data = data_atual
+            LIMIT 1;
+
+            -- Verificar se encontrou a aula
+            IF idaula IS NOT NULL THEN
+                -- Inserir na tabela chamada
+                INSERT INTO chamada (idaula, iddiario, DATA, idaluno, marcacaoentrada, ip)
+                VALUES (idaula, iddiario, data_atual, idaluno, hora_atual, ipusr);
+
+                -- Ajustar retorno e mensagem
+                SET retorno = 1;
+                SET mensagem = 'Marcação de entrada realizada com sucesso.';
+            ELSE
+                -- Aula não encontrada
+                SET mensagem = 'Erro: Aula não encontrada para o diário no dia atual.';
+            END IF;
+        ELSE
+            -- Matrícula não encontrada
+            SET mensagem = 'Erro: Matrícula ativa não encontrada para o container informado.';
+        END IF;
+    ELSE
+        -- Ação inválida
+        SET mensagem = 'Erro: Ação inválida. Apenas ação 1 é suportada.';
+    END IF;
+
+    -- Retornar resultado
+    SELECT retorno AS retorno, mensagem AS mensagem;
+END $$
+
+DELIMITER ;
+
+DELIMITER ;
 END //
 
 DELIMITER ;
