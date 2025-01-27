@@ -163,6 +163,142 @@ BEGIN
     END IF;
 
     -- Retornar resultado
+
+/*PROCEDURE PARA REGISTRAR SAIDA*/
+
+DELIMITER $$
+
+USE `BD085`$$
+
+DROP PROCEDURE IF EXISTS `registrasaida`$$
+
+CREATE DEFINER=`CONTAINER085`@`%` PROCEDURE `registrasaida`(
+    IN container INT,
+    IN acao INT,
+    IN ipusr VARCHAR(40)
+)
+BEGIN
+    DECLARE retorno INT DEFAULT 0;
+    DECLARE mensagem VARCHAR(255) DEFAULT '';
+    DECLARE data_atual DATE;
+    DECLARE hora_atual TIME;
+    DECLARE tempo_total_segundos INT;
+
+    -- Obtém a data e hora atuais
+    SET data_atual = CURDATE();
+    SET hora_atual = CURTIME();
+
+    -- Verifica se a ação é 2 (Marcação de saída)
+    IF acao = 2 THEN
+        -- Verifica se existe marcação de entrada e não há marcação de saída para o container fornecido
+        IF EXISTS (
+            SELECT 1
+            FROM chamada
+            WHERE container = container
+              AND DATA = data_atual
+              AND marcacaoentrada IS NOT NULL
+              AND marcacaosaida IS NULL
+        ) THEN
+            -- Atualiza a marcação de saída com a hora atual
+            UPDATE chamada
+            SET marcacaosaida = hora_atual
+            WHERE container = container
+              AND DATA = data_atual
+              AND marcacaosaida IS NULL;
+
+            -- Calcula o tempo total entre entrada e saída em segundos
+            SELECT TIME_TO_SEC(TIMEDIFF(marcacaosaida, marcacaoentrada))
+            INTO tempo_total_segundos
+            FROM chamada
+            WHERE container = container
+              AND DATA = data_atual;
+
+            -- Atualiza a coluna `presenca` com base no tempo total
+            UPDATE chamada
+            SET presenca = CASE 
+                               WHEN tempo_total_segundos < 1350 THEN 0 -- Menos de 22 minutos
+                               WHEN tempo_total_segundos BETWEEN 1350 AND 4079 THEN 1 -- Entre 22 e 68 minutos
+                               ELSE 2 -- Mais de 68 minutos
+                           END
+            WHERE container = container
+              AND DATA = data_atual;
+
+            -- Define retorno e mensagem
+            SET retorno = 1;
+            SET mensagem = 'Marcação de saída realizada com sucesso e presença calculada.';
+        ELSE
+            -- Caso contrário, define retorno e mensagem de erro
+            SET retorno = 0;
+            SET mensagem = 'Erro: Não há marcação de entrada ou saída já realizada.';
+        END IF;
+    ELSE
+        -- Caso a ação não seja 2, define retorno e mensagem de erro
+        SET retorno = 0;
+        SET mensagem = 'Ação inválida. Apenas a ação 2 é permitida para registrar a saída.';
+    END IF;
+
+    -- Retorna o resultado
+    SELECT retorno, mensagem;
+END$$
+
+DELIMITER ;
+
+/*PROCEDURE PARA RELATORIO*/
+DELIMITER $$
+
+USE `BD085`$$
+
+DROP PROCEDURE IF EXISTS `gerarelatorio`$$
+
+CREATE DEFINER=`CONTAINER085`@`%` PROCEDURE `gerarelatorio`(
+    IN container INT,
+    IN acao INT,
+    IN ipusr VARCHAR(40)
+)
+BEGIN
+    DECLARE retorno INT DEFAULT 0;
+    DECLARE mensagem VARCHAR(255) DEFAULT '';
+    DECLARE data_atual DATE;
+    
+    -- Verifica se a ação é 3 (Gerar relatório)
+    IF acao = 3 THEN
+        -- Seleciona as informações necessárias para o relatório
+        SELECT 
+            c.data AS DataAula,
+            a.numaulas AS NumAulas,
+            h.diasemana AS DiaSemana,
+            a.conteudo AS Conteudo,
+            c.marcacaoentrada AS MarcacaoEntrada,
+            c.marcacaosaida AS MarcacaoSaida,
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(c.marcacaosaida, IFNULL(c.marcacaoentrada, 0))) < 1350 THEN 0 -- Menos de 22 minutos
+                WHEN TIME_TO_SEC(TIMEDIFF(c.marcacaosaida, IFNULL(c.marcacaoentrada, 0))) BETWEEN 1350 AND 4079 THEN 1 -- Entre 22 e 68 minutos
+                ELSE 2 -- Mais de 68 minutos
+            END AS Presencas,
+            CASE 
+                WHEN TIME_TO_SEC(TIMEDIFF(c.marcacaosaida, IFNULL(c.marcacaoentrada, 0))) < 1350 THEN 1 -- Menos de 22 minutos = Falta
+                ELSE 0 -- Caso contrário, presença é válida
+            END AS Faltas
+        FROM chamada c
+        JOIN aulas a ON c.iddiario = a.iddiario AND c.idaula = a.idaula
+        JOIN horarios h ON a.idhorario = h.idhorario
+        WHERE c.container = container
+        ORDER BY c.data;
+
+        -- Define o retorno e mensagem
+        SET retorno = 1;
+        SET mensagem = 'Relatório gerado com sucesso.';
+    ELSE
+        -- Caso a ação não seja 3, define retorno e mensagem de erro
+        SET retorno = 0;
+        SET mensagem = 'Ação inválida. Apenas a ação 3 é permitida para gerar o relatório.';
+    END IF;
+
+    -- Retorna o status e a mensagem
+    SELECT retorno, mensagem;
+END$$
+
+DELIMITER ;
     SELECT retorno AS retorno, mensagem AS mensagem;
 END$$
 
